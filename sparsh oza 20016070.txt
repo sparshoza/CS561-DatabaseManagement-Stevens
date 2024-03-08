@@ -1,0 +1,195 @@
+Sparsh Oza
+20016070
+
+
+
+
+Q1.
+ 
+with 
+table1 as
+(select max(quant) as max_quantity, min(quant) as min_quantity, avg(quant) as avg_quantity, prod as prod 
+from sales 
+group by prod),
+
+table2 as
+(select table1.prod, table1.max_quantity, sales.cust as max_customer, table1.min_quantity, table1.avg_quantity, day as max_day ,month as max_month, year as max_year,state as max_state
+from table1, sales
+where table1.prod = sales.prod and table1.max_quantity = sales.quant)
+
+select table2.prod, table2.max_quantity, table2.max_customer, table2.max_month, table2.max_day, table2.max_year, table2.max_state, table2.min_quantity, 
+sales.cust as min_customer, sales.month as min_month, sales.day as min_day, sales.year as min_year, sales.state as min_state,
+table2.avg_quantity
+from table2, sales
+where table2.prod = sales.prod and table2.min_quantity = sales.quant
+
+
+
+
+
+
+
+
+Q2.
+
+with
+tempTable as
+(select cust, prod from sales group by cust, prod),
+
+newYorkTemp1 as 
+(select cust, prod, max(quant) as NY_MAX from sales 
+where state = 'NY' 
+group by cust, prod),
+
+newYorkTemp2 as 
+(select newYorkTemp1.cust as customer, newYorkTemp1.prod as product, newYorkTemp1.NY_MAX, day as NY_MAX_DAY, month as NY_MAX_MONTH, year as NY_MAX_YEAR from sales, newYorkTemp1 
+where newYorkTemp1.prod = sales.prod and
+newYorkTemp1.cust = sales.cust and 
+newYorkTemp1.NY_MAX = sales.quant),
+
+newJerseyTemp1 as
+(select cust, prod, min(quant) as NJ_MIN from sales 
+where state = 'NJ' and year > 2000 
+group by cust, prod),
+
+newJerseyTemp2 as
+(select newJerseyTemp1.cust as customer, newJerseyTemp1.prod as product, newJerseyTemp1.NJ_MIN, day as NJ_MIN_DAY, month as NJ_MIN_MONTH, year as NJ_MIN_YEAR from sales, newJerseyTemp1 
+where newJerseyTemp1.prod = sales.prod and 
+newJerseyTemp1.cust = sales.cust and 
+newJerseyTemp1.NJ_MIN = sales.quant),
+
+CT1 as
+(select cust, prod, min(quant) as CT_MIN from sales 
+where state = 'CT' and 
+year > 2000 
+group by cust, prod),
+
+CT2 as
+(select CT1.cust as customer, CT1.prod as product, CT1.CT_MIN, day as CT_MIN_DAY, month as CT_MIN_MONTH, year as CT_MIN_YEAR from sales, CT1 where CT1.prod = sales.prod and CT1.cust = sales.cust and CT1.CT_MIN = sales.quant),
+
+NY as
+(select tempTable.cust, tempTable.prod, newYorkTemp2.NY_MAX, ny_max_month, ny_max_day, ny_max_year from newYorkTemp2 
+full outer join tempTable on tempTable.cust=newYorkTemp2.customer and 
+tempTable.prod=newYorkTemp2.product),
+
+NJ as
+(select tempTable.cust, tempTable.prod, newJerseyTemp2.NJ_MIN, nj_min_month, nj_min_day, nj_min_year from newJerseyTemp2 
+full outer join tempTable on 
+tempTable.cust=newJerseyTemp2.customer and 
+tempTable.prod=newJerseyTemp2.product),
+
+CT as
+(select tempTable.cust, tempTable.prod, CT2.CT_MIN, ct_min_month, ct_min_day, ct_min_year from CT2 
+full outer join tempTable on 
+tempTable.cust=CT2.customer and tempTable.prod=CT2.product)
+
+select *
+from ((NY natural join NJ) natural join CT)
+order by cust
+
+
+
+
+
+Q3.
+
+with
+table1 as
+(select month, state, sum(quant) as sum_of_quant from sales group by month,state order by month),
+
+table2 as
+(select month, max(sum_of_quant) as most_popular_quantity, min(sum_of_quant) as least_popular_quantity 
+from table1 
+group by month 
+order by month),
+
+table3 as
+(select table1.month, table1.state as most_popular_state, most_popular_quantity from table1, table2 where table1.month = table2.month and table1.sum_of_quant = table2.most_popular_quantity)
+
+select table3.month as month_number, table3.most_popular_state, table3.most_popular_quantity, table1.state as least_popular_state, table2.least_popular_quantity 
+from table1, table2, table3
+where table2.month = table3.month and table1.sum_of_quant = table2.least_popular_quantity
+
+
+
+
+
+
+Q4.
+
+with 
+Temp1 as 
+(select cust, prod, sum(quant) as product_sales
+from sales
+group by cust, prod
+), 
+
+Temp2 as 
+(select cust, state, sum(quant) as state_sales
+from sales
+group by cust, state
+), 
+
+TempProduct as 
+(select cust, max(product_sales) as max_q, min(product_sales) as min_q
+from Temp1
+group by cust
+), 
+
+TempCustomer as 
+(select cust, max(state_sales) as max_st, min(state_sales) as min_st
+from Temp2
+group by cust
+), 
+
+Temp3 as 
+(select TempProduct.cust,Temp1.prod as most_fav_p,Temp2.state as max_st,TempProduct.min_q,TempCustomer.min_st
+from TempProduct, Temp2, Temp1, TempCustomer
+where Temp1.cust = TempProduct.cust
+and Temp1.product_sales = TempProduct.max_q
+and Temp1.cust = TempCustomer.cust
+and Temp2.state_sales = TempCustomer.max_st
+)
+
+select Temp3.cust,Temp3.most_fav_p as most_fav_prod,Temp1.prod as least_fav_prod,Temp3.max_st as most_fav_st,Temp2.state as least_fav_st
+from Temp3, Temp1, Temp2
+where Temp3.cust = Temp1.cust
+and Temp3.min_q = Temp1.product_sales
+and Temp3.min_st = Temp2.state_sales
+order by Temp1.cust
+
+
+
+
+
+Q5.
+
+with
+table1 as
+(select prod, cust, round(avg(quant)) as average_quantity, sum(quant) as total_quantity, count(quant) as count_of_quantity 
+ from sales group by cust, 
+ prod order by prod),
+
+table2 as
+(select prod, cust, round(avg(quant)) as Q1_AVG from sales where month <= 3
+ group by cust, 
+ prod order by prod),
+
+table3 as 
+(select prod, cust, round(avg(quant)) as Q2_AVG from sales where month > 3 and month < 7
+group by cust, 
+prod order by prod),
+
+table4 as 
+(select prod, cust, round(avg(quant)) as Q3_AVG from sales where month > 6 and month < 10
+group by cust, 
+prod order by prod),
+
+table5 as
+(select prod, cust, round(avg(quant)) as Q4_AVG from sales where month > 9
+group by cust, 
+prod order by prod)
+
+select table1.cust as customer, table1.prod as product, Q1_AVG, Q2_AVG, Q3_AVG, Q4_AVG, average_quantity, total_quantity, count_of_quantity
+from ((((table1 natural join table2)natural join table3) natural join table4) natural join table5)
+order by cust,prod

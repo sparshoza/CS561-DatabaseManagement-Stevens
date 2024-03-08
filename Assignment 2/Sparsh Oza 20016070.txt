@@ -1,0 +1,118 @@
+Sparsh Oza
+20016070
+
+Q1.
+
+with 
+Temp1 as
+(select cust, prod, month, state, round(avg(quant)) as cust_avg 
+from sales
+group by cust, prod, month, state
+order by cust, prod, month),
+
+Temp2 as 
+(select t1.cust, t1.prod, t1.month, t1.state, round(avg(t2.quant)) as other_prod_avg
+from Temp1 as t1, sales as t2
+where t1.cust = t2.cust and t1.month = t2.month and t1.state = t2.state and t1.prod != t2.prod
+group by t1.cust, t1.prod, t1.month, t1.state
+),
+
+Temp3 as 
+(select t1.cust, t1.prod, t1.month, t1.state, round(avg(t2.quant)) as other_month_avg
+from Temp1 as t1, sales as t2
+where t1.cust = t2.cust and t1.month != t2.month and t1.state = t2.state and t1.prod = t2.prod
+group by t1.cust, t1.prod, t1.month, t1.state
+),
+
+Temp4 as
+(select t1.cust, t1.prod, t1.month, t1.state, round(avg(t2.quant)) as other_state_avg
+from Temp1 as t1, sales as t2
+where t1.cust = t2.cust and t1.month = t2.month and t1.state != t2.state and t1.prod = t2.prod
+group by t1.cust, t1.prod, t1.month, t1.state
+)
+
+select cust as customer, prod as product, month, state, cust_avg, other_prod_avg, other_month_avg, other_state_avg
+from Temp1 Natural full outer join Temp2 Natural full outer join Temp3 Natural full outer join Temp4
+
+
+Q2.
+
+with 
+Temp1 as
+(
+select cust, prod, state, month, round(avg(quant),0) as avg
+from sales
+group by cust, prod,state, month), 
+
+Temp2 as 
+(select t1.cust, t1.prod, t1.state, t2.month, t1.avg as BEFORE_MonTH
+from Temp1 t1, Temp1 t2
+where t1.cust = t2.cust and t1.prod = t2.prod and t1.state=t2.state and t1.month = t2.month-1), 
+
+Temp3 as 
+(select t1.cust, t1.prod,t2.state, t2.month, t1.avg as AFTER_MonTH
+from Temp1 t1, Temp1 t2
+where t1.cust = t2.cust and t1.prod = t2.prod and t1.state=t2.state and t1.month = t2.month+1), 
+
+Temp4 as 
+(select O.cust, O.prod,O.state, O.month, B1EFORE_MonTH
+from Temp1 O LEFT JOIN Temp2 B1
+on O.cust = B1.cust and O.prod = B1.prod and O.state=B1.state and O.month = B1.month), 
+
+Temp5 as 
+(select O.cust, O.prod,O.state, O.month, AFTER_MonTH
+from Temp1 O LEFT JOIN Temp3 A
+on O.cust = A.cust and O.prod = A.prod and O.state=A.state and O.month = A.month)
+
+
+select B1.cust as "CUSTOMER", B1.prod as "PRODUCT", B1.state, B1.month as "month", BEFORE_MonTH as "Before_Month",  AFTER_MONTH as "AFTER_MONTH"
+from Temp4 B1, Temp5 A
+where B1.cust = A.cust and B1.prod = A.prod and B1.state=A.state and B1.month = A.month
+
+
+Q3.
+
+with 
+temp1 as
+(select prod,quant,count(quant) as count 
+from sales 
+group by prod,quant 
+order by prod,quant),
+
+temp2 as
+(select t1.prod, t1.quant, sum(t2.count) as rowsum
+from temp1 t1 join temp1 t2 
+on t1.prod=t2.prod  
+where t1.quant>=t2.quant 
+group by t1.prod,t1.quant 
+order by prod),
+
+temp3 as
+(select prod, ((count(quant)+1)/2) as rowsum 
+from temp1 group by prod)
+
+select prod as PRODUCT, quant as MEDIAN QUANT 
+from temp2 natural join temp3
+
+Q4.
+with 
+original_sales as 
+(select cust, prod, month, sum(quant) as MONTH_SALES
+from sales
+group by cust, prod, month), 
+
+total_sales as
+(select x1.cust, x1.prod, x1.month, sum(y1.MONTH_SALES) as COMBINED_SALES
+from original_sales x1, original_sales y1
+where x1.cust = y1.cust and x1.prod = y1.prod and x1.month >= y1.month
+group by x1.cust, x1.prod, x1.month), 
+
+target_sales as
+(select cust, prod, round(3*(sum(MONTH_SALES))/4,0) as TARGETED_SALES
+from original_sales
+group by cust, prod)
+
+select x1.cust as "CUSTOMER", x1.prod as "PRODUCT", min(x1.month) as "75% PURCHasED BY MONTH"
+from total_sales x1, target_sales y1
+where x1.cust = y1.cust and x1.prod = y1.prod and combined_sales >= targeted_sales
+group by x1.cust, x1.prod
